@@ -50,11 +50,10 @@ Before pushing, add these repository secrets under **Settings > Secrets and vari
 | Secret | Value |
 | --- | --- |
 | `EC2_HOST` | EC2 public IPv4 address or DNS name |
-| `EC2_USER` | `ubuntu` for the standard Ubuntu AMI |
+| `EC2_USERNAME` | `ubuntu` for the standard Ubuntu AMI |
 | `EC2_SSH_KEY` | Contents of the private key that matches the EC2 key pair |
-| `EC2_KNOWN_HOSTS` | Verified `known_hosts` entry for the EC2 host |
 
-Get the server host key through a trusted channel and verify its fingerprint before saving the `known_hosts` entry. The workflow checks this pinned host key and does not turn off SSH host verification. Never commit private keys or add them to app configuration files.
+The workflow creates its `known_hosts` file on the Ubuntu runner using `ssh-keyscan` for `EC2_HOST`; you do not need an `EC2_KNOWN_HOSTS` secret. SSH host key checking remains enabled, though the scanned key is not independently verified against a trusted fingerprint. Never commit private keys or add them to app configuration files.
 
 After the secrets are set, every push to `main` runs tests, builds the image, smoke checks it, and deploys it. You can also start the workflow manually from the GitHub Actions tab. A failed test or image check prevents deployment. The deployed app is available at `http://EC2_PUBLIC_IP/`.
 

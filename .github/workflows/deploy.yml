@@ -53,30 +53,32 @@ jobs:
       - name: Configure SSH
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          test -n "$EC2_SSH_KEY" && test -n "$EC2_KNOWN_HOSTS"
+          set -euo pipefail
+          test -n "$EC2_SSH_KEY" && test -n "$EC2_HOST"
           install -m 700 -d ~/.ssh
           printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$EC2_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh-keyscan -H -T 10 "$EC2_HOST" > ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
       - name: Copy image to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
-          test -n "$EC2_HOST" && test -n "$EC2_USER"
-          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes ec2-cicd-demo.tar "$EC2_USER@$EC2_HOST:~/ec2-cicd-demo.tar"
+          test -n "$EC2_HOST" && test -n "$EC2_USERNAME"
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes ec2-cicd-demo.tar "$EC2_USERNAME@$EC2_HOST:~/ec2-cicd-demo.tar"
 
       - name: Deploy and check on EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "$EC2_USER@$EC2_HOST" "docker load --input ~/ec2-cicd-demo.tar && (docker rm --force ec2-cicd-demo >/dev/null 2>&1 || true) && docker run --detach --restart unless-stopped --name ec2-cicd-demo --publish 80:8000 ec2-cicd-demo:$IMAGE_TAG && rm ~/ec2-cicd-demo.tar"
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "$EC2_USERNAME@$EC2_HOST" "docker load --input ~/ec2-cicd-demo.tar && (docker rm --force ec2-cicd-demo >/dev/null 2>&1 || true) && docker run --detach --restart unless-stopped --name ec2-cicd-demo --publish 80:8000 ec2-cicd-demo:$IMAGE_TAG && rm ~/ec2-cicd-demo.tar"
           for attempt in {1..20}; do
             if curl --fail --silent "http://$EC2_HOST/health"; then
               exit 0
